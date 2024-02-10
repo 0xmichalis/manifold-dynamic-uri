@@ -1,3 +1,6 @@
 [submodule "lib/forge-std"]
 	path = lib/forge-std
 	url = https://github.com/foundry-rs/forge-std
+[submodule "lib/creator-core-solidity"]
+	path = lib/creator-core-solidity
+	url = https://github.com/manifoldxyz/creator-core-solidity
