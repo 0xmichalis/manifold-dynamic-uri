@@ -7,8 +7,6 @@ import {ICreatorExtensionTokenURI} from
     "manifoldxyz/creator-core/extensions/ICreatorExtensionTokenURI.sol";
 import {IERC721CreatorExtensionApproveTransfer} from
     "manifoldxyz/creator-core/extensions/ERC721/IERC721CreatorExtensionApproveTransfer.sol";
-import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
-import {IERC165} from "openzeppelin/utils/introspection/ERC165.sol";
 import {ERC165Checker} from "openzeppelin/utils/introspection/ERC165Checker.sol";
 
 contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionApproveTransfer {
