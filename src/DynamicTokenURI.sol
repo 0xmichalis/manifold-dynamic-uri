@@ -8,6 +8,8 @@ import {ICreatorExtensionTokenURI} from
 import {IERC721CreatorExtensionApproveTransfer} from
     "manifoldxyz/creator-core/extensions/ERC721/IERC721CreatorExtensionApproveTransfer.sol";
 import {ERC165Checker} from "openzeppelin/utils/introspection/ERC165Checker.sol";
+import {IERC165} from "openzeppelin/utils/introspection/IERC165.sol";
+import {Strings} from "openzeppelin/utils/Strings.sol";
 
 contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionApproveTransfer {
     // Immutable storage
@@ -25,7 +27,8 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
     }
 
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
-        return interfaceId == type(ICreatorExtensionTokenURI).interfaceId
+        return interfaceId == type(IERC165).interfaceId
+            || interfaceId == type(ICreatorExtensionTokenURI).interfaceId
             || interfaceId == type(IERC721CreatorExtensionApproveTransfer).interfaceId;
     }
 
@@ -35,6 +38,7 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
         override
         returns (string memory)
     {
+        uint256 metadataId = _getMetadataId(tokenId);
         // This assumes the following directory structure in baseURI:
         // .
         // └──<baseURI>
@@ -42,7 +46,7 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
         //    ├── 2.json
         //    ├── ...
         //    └── <maxChanges>.json
-        return string(abi.encodePacked(baseURI, _getMetadataId(tokenId), ".json"));
+        return string(abi.encodePacked(baseURI, Strings.toString(metadataId), ".json"));
     }
 
     function _getMetadataId(uint256 tokenId) internal view returns (uint256) {
