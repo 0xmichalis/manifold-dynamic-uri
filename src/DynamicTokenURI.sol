@@ -69,7 +69,7 @@ contract DynamicTokenURI is
     /**
      * @dev Called by creator contract to approve a transfer
      */
-    function approveTransfer(address operator, address from, address to, uint256 tokenId)
+    function approveTransfer(address, /* operator */ address from, address to, uint256 tokenId)
         external
         returns (bool)
     {
