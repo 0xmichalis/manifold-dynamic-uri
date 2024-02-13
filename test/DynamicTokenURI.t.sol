@@ -73,12 +73,12 @@ contract DynamicTokenURITest is Test {
         vm.prank(alice);
         uint256 tokenId = extension.mint();
 
-        // 2. Token URI changes up to maxChanges
-        uint256 maxChanges = extension.maxChanges();
+        // 2. Token URI changes up to maxSupply
+        uint256 maxSupply = extension.maxSupply();
         address owner = alice;
         address recipient = bob;
         string memory lastURI;
-        for (uint256 i = 0; i < maxChanges - 1; i++) {
+        for (uint256 i = 0; i < maxSupply - 1; i++) {
             // Transfer from owner to recipient
             vm.prank(owner);
             token.transferFrom(owner, recipient, tokenId);
@@ -95,12 +95,12 @@ contract DynamicTokenURITest is Test {
             lastURI = uri;
         }
 
-        // 3. Token URI should not change after maxChanges
+        // 3. Token URI should not change after maxSupply
         vm.prank(owner);
         token.transferFrom(owner, recipient, tokenId);
         string memory finalURI = token.tokenURI(tokenId);
         string memory expectedFinalURI =
-            string(abi.encodePacked(baseURI, Strings.toString(maxChanges), ".json"));
+            string(abi.encodePacked(baseURI, Strings.toString(maxSupply), ".json"));
         assertEq(finalURI, expectedFinalURI);
         assertEq(finalURI, lastURI);
     }
@@ -136,5 +136,20 @@ contract DynamicTokenURITest is Test {
         vm.prank(alice);
         vm.expectRevert("Ownable: caller is not the owner");
         extension.setBaseURI("testURI");
+    }
+
+    function testCannotMintMoreThanMaxSupply() public {
+        // Mint up to maxSupply
+        uint256 maxSupply = extension.maxSupply();
+        for (uint256 i = 0; i < maxSupply; i++) {
+            vm.prank(alice);
+            extension.mint();
+        }
+        assertEq(token.balanceOf(alice), maxSupply);
+
+        // Cannot mint more
+        vm.prank(alice);
+        vm.expectRevert("mint complete");
+        extension.mint();
     }
 }

@@ -18,24 +18,26 @@ contract DynamicTokenURI is
     IERC721CreatorExtensionApproveTransfer
 {
     // Immutable storage
-    uint256 public immutable maxChanges;
+    // Total supply of tokens meant to be minted with this extension
+    uint256 public immutable maxSupply;
+    uint256 public minted;
     IERC721CreatorCore public immutable creatorContract;
 
     // Mutable storage
     string public baseURI;
     mapping(uint256 => uint256) private tokenIdToMetadataId;
 
-    constructor(address creatorContract_, string memory baseURI_, uint256 maxChanges_) Ownable() {
+    constructor(address creatorContract_, string memory baseURI_, uint256 maxSupply_) Ownable() {
         require(
             ERC165Checker.supportsInterface(creatorContract_, type(IERC721CreatorCore).interfaceId),
             "creator must implement IERC721CreatorCore"
         );
         require(bytes(baseURI_).length != 0, "baseURI must not be empty");
-        require(maxChanges_ != 0, "maxChanges must be positive");
+        require(maxSupply_ != 0, "maxSupply must be positive");
 
         creatorContract = IERC721CreatorCore(creatorContract_);
         baseURI = baseURI_;
-        maxChanges = maxChanges_;
+        maxSupply = maxSupply_;
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner {
@@ -78,10 +80,10 @@ contract DynamicTokenURI is
             return 1;
         }
         // If within the change limit, use the metadata id.
-        // Otherwise, use maxChanges, iow., the artwork will stop
-        // shifting after the max number of changes is reached and
-        // will stay with the final artwork forever.
-        return maxChanges > metadataId ? metadataId : maxChanges;
+        // Otherwise, use maxSupply, iow., the artwork will
+        // frieze to the last artwork after the token shifts
+        // through the whole supply.
+        return maxSupply > metadataId ? metadataId : maxSupply;
     }
 
     /**
@@ -99,7 +101,7 @@ contract DynamicTokenURI is
 
         uint256 metadataId = _getMetadataId(tokenId);
         // No more token URI changes once the max number of changes is reached
-        if (metadataId >= maxChanges) {
+        if (metadataId >= maxSupply) {
             return true;
         }
 
@@ -113,6 +115,13 @@ contract DynamicTokenURI is
     }
 
     function mint() external returns (uint256) {
+        uint256 tokensMinted = minted;
+        require(tokensMinted < maxSupply, "mint complete");
+        unchecked {
+            // realistically never overflows
+            ++tokensMinted;
+        }
+        minted = tokensMinted;
         return IERC721CreatorCore(creatorContract).mintExtension(msg.sender);
     }
 }
