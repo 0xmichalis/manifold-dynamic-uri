@@ -17,7 +17,19 @@ contract DynamicTokenURI is
     ICreatorExtensionTokenURI,
     IERC721CreatorExtensionApproveTransfer
 {
-    constructor() Ownable(msg.sender) {}
+    // Immutable storage
+    uint256 public immutable maxChanges;
+
+    // Mutable storage
+    string public baseURI;
+    mapping(uint256 => uint256) private tokenIdToMetadataId;
+
+    constructor(string memory baseURI_, uint256 maxChanges_) Ownable(msg.sender) {
+        require(bytes(baseURI_).length != 0, "baseURI must not be empty");
+        require(maxChanges_ != 0, "maxChanges must be positive");
+        baseURI = baseURI_;
+        maxChanges = maxChanges_;
+    }
 
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
         return interfaceId == type(Ownable).interfaceId
@@ -25,34 +37,32 @@ contract DynamicTokenURI is
             || interfaceId == type(IERC721CreatorExtensionApproveTransfer).interfaceId;
     }
 
-    function tokenURI(address creator, uint256 tokenId)
+    function tokenURI(address, /* creator */ uint256 tokenId)
         external
         view
         override
         returns (string memory)
     {
-        address tokenOwner = IERC721(creator).ownerOf(tokenId);
-        // TODO: What should be shown if the work is burned?
-        require(tokenOwner != address(0), "Invalid token");
-
-        uint256 addressNumber = uint256(uint160(tokenOwner));
-        // TODO: This should be read from the creator contract
-        uint256 totalNumberOfArtworks = 69;
-        // Naive way to rotate artworks for a token while the token
-        // is transferred between owners.
-        uint256 metadataId = (addressNumber % totalNumberOfArtworks) + 1;
-
-        // This assumes the following directory structure in IPFS:
+        // This assumes the following directory structure in baseURI:
         // .
-        // └──<ipfs_directory>
+        // └──<baseURI>
         //    ├── 1.json
         //    ├── 2.json
         //    ├── ...
-        //    └── <totalNumberOfArtworks>.json
-        //
-        // TODO: Read the IPFS directory from the creator contract
-        // or allow setting it in this contract
-        return string(abi.encodePacked("ipfs://<ipfs_directory>/", metadataId, ".json"));
+        //    └── <maxChanges>.json
+        return string(abi.encodePacked(baseURI, _getMetadataId(tokenId), ".json"));
+    }
+
+    function _getMetadataId(uint256 tokenId) internal view returns (uint256) {
+        uint256 metadataId = tokenIdToMetadataId[tokenId];
+        if (metadataId == 0) {
+            return 1;
+        }
+        // If within the change limit, use the metadata id.
+        // Otherwise, use maxChanges, iow., the artwork will stop
+        // shifting after the max number of changes is reached and
+        // will stay with the final artwork forever.
+        return maxChanges > metadataId ? metadataId : maxChanges;
     }
 
     /**
@@ -73,6 +83,23 @@ contract DynamicTokenURI is
         external
         returns (bool)
     {
+        if (from == address(0) || to == address(0)) {
+            // This is a mint or a burn, do nothing
+            return true;
+        }
+
+        uint256 metadataId = _getMetadataId(tokenId);
+        // No more token URI changes once the max number of changes is reached
+        if (metadataId >= maxChanges) {
+            return true;
+        }
+
+        unchecked {
+            // realistically never overflows
+            ++metadataId;
+        }
+        tokenIdToMetadataId[tokenId] = metadataId;
+
         return true;
     }
 }
