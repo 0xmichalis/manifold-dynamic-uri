@@ -8,22 +8,45 @@ import {ICreatorExtensionTokenURI} from
 import {IERC721CreatorExtensionApproveTransfer} from
     "manifoldxyz/creator-core/extensions/ERC721/IERC721CreatorExtensionApproveTransfer.sol";
 import {ERC165Checker} from "openzeppelin/utils/introspection/ERC165Checker.sol";
+import {Ownable} from "openzeppelin/access/Ownable.sol";
 import {IERC165} from "openzeppelin/utils/introspection/IERC165.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
-contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionApproveTransfer {
+contract DynamicTokenURI is
+    Ownable,
+    ICreatorExtensionTokenURI,
+    IERC721CreatorExtensionApproveTransfer
+{
     // Immutable storage
     uint256 public immutable maxChanges;
+    IERC721CreatorCore public immutable creatorContract;
 
     // Mutable storage
     string public baseURI;
     mapping(uint256 => uint256) private tokenIdToMetadataId;
 
-    constructor(string memory baseURI_, uint256 maxChanges_) {
+    constructor(address creatorContract_, string memory baseURI_, uint256 maxChanges_) Ownable() {
+        require(
+            ERC165Checker.supportsInterface(creatorContract_, type(IERC721CreatorCore).interfaceId),
+            "creator must implement IERC721CreatorCore"
+        );
         require(bytes(baseURI_).length != 0, "baseURI must not be empty");
         require(maxChanges_ != 0, "maxChanges must be positive");
+
+        creatorContract = IERC721CreatorCore(creatorContract_);
         baseURI = baseURI_;
         maxChanges = maxChanges_;
+    }
+
+    function setBaseURI(string memory baseURI_) external onlyOwner {
+        require(bytes(baseURI_).length != 0, "baseURI must not be empty");
+        baseURI = baseURI_;
+    }
+
+    /// @notice Disable the transfer callback if needed
+    function setApproveTransfer(address creatorContract_, bool enabled_) external onlyOwner {
+        require(creatorContract_ == address(creatorContract), "invalid creator");
+        IERC721CreatorCore(creatorContract_).setApproveTransferExtension(enabled_);
     }
 
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
@@ -32,7 +55,7 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
             || interfaceId == type(IERC721CreatorExtensionApproveTransfer).interfaceId;
     }
 
-    function tokenURI(address, /* creator */ uint256 tokenId)
+    function tokenURI(address, /* creatorContract */ uint256 tokenId)
         external
         view
         override
@@ -62,23 +85,13 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
     }
 
     /**
-     * @dev Set whether or not the creator will check the extension for approval of token transfer
-     */
-    function setApproveTransfer(address creator, bool enabled) external {
-        require(
-            ERC165Checker.supportsInterface(creator, type(IERC721CreatorCore).interfaceId),
-            "creator must implement IERC721CreatorCore"
-        );
-        IERC721CreatorCore(creator).setApproveTransferExtension(enabled);
-    }
-
-    /**
      * @dev Called by creator contract to approve a transfer
      */
     function approveTransfer(address, /* operator */ address from, address to, uint256 tokenId)
         external
         returns (bool)
     {
+        require(msg.sender == address(creatorContract), "invalid caller");
         if (from == address(0) || to == address(0)) {
             // This is a mint or a burn, do nothing
             return true;
@@ -99,11 +112,7 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
         return true;
     }
 
-    function mint(address creator) external returns (uint256) {
-        require(
-            ERC165Checker.supportsInterface(creator, type(IERC721CreatorCore).interfaceId),
-            "creator must implement IERC721CreatorCore"
-        );
-        return IERC721CreatorCore(creator).mintExtension(msg.sender);
+    function mint() external returns (uint256) {
+        return IERC721CreatorCore(creatorContract).mintExtension(msg.sender);
     }
 }

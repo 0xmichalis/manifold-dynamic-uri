@@ -32,7 +32,7 @@ contract DynamicTokenURITest is Test {
 
         // Deploy the extension contract
         vm.prank(creator);
-        extension = new DynamicTokenURI(baseURI, 24);
+        extension = new DynamicTokenURI(address(token), baseURI, 24);
 
         // Register the extension in the creator contract
         vm.prank(creator);
@@ -55,7 +55,7 @@ contract DynamicTokenURITest is Test {
     function testSimpleMintAndTransfer() public {
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint(address(token));
+        uint256 tokenId = extension.mint();
         string memory aliceURI = token.tokenURI(tokenId);
         string memory expectedAliceURI = string(abi.encodePacked(baseURI, "1.json"));
         assertEq(aliceURI, expectedAliceURI);
@@ -71,7 +71,7 @@ contract DynamicTokenURITest is Test {
     function testTransferUpToMaxChange() public {
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint(address(token));
+        uint256 tokenId = extension.mint();
 
         // 2. Token URI changes up to maxChanges
         uint256 maxChanges = extension.maxChanges();
@@ -103,5 +103,38 @@ contract DynamicTokenURITest is Test {
             string(abi.encodePacked(baseURI, Strings.toString(maxChanges), ".json"));
         assertEq(finalURI, expectedFinalURI);
         assertEq(finalURI, lastURI);
+    }
+
+    function testInvalidCallerToTransferCallback() public {
+        // Token contract can call the callback
+        vm.prank(address(token));
+        extension.approveTransfer(address(0), alice, bob, 1);
+
+        // Others cannot
+        vm.prank(alice);
+        vm.expectRevert("invalid caller");
+        extension.approveTransfer(address(0), alice, bob, 1);
+    }
+
+    function testCannotCallSetApproveTransfer() public {
+        // Creator can call the callback
+        vm.prank(creator);
+        extension.setApproveTransfer(address(token), false);
+
+        // Others cannot
+        vm.prank(alice);
+        vm.expectRevert("Ownable: caller is not the owner");
+        extension.setApproveTransfer(address(token), false);
+    }
+
+    function testCannotCallSetBaseURI() public {
+        // Creator can call the callback
+        vm.prank(creator);
+        extension.setBaseURI("testURI");
+
+        // Others cannot
+        vm.prank(alice);
+        vm.expectRevert("Ownable: caller is not the owner");
+        extension.setBaseURI("testURI");
     }
 }
