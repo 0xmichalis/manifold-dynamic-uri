@@ -32,3 +32,6 @@ jobs:
         run: |
           forge test -vvv
         id: test
+
+      - name: Check formatting
+        run: forge fmt --check
