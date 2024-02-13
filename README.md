@@ -1,19 +1,16 @@
-## Foundry
+# Manifold extension for dynamic URIs
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+`DynamicTokenURI` is a Manifold extension that enables dynamic token URIs
+for a Manifold creator contract. Specifically, when a token is transferred
+between wallets, the URI changes.
 
-Foundry consists of:
+## Manifold extensions
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+Learn more about Manifold extensions:
+* [developing](https://docs.manifold.xyz/v/manifold-for-developers/smart-contracts/manifold-creator/contracts/extensions)
+* [deploying](https://docs.manifold.xyz/v/manifold-for-developers/smart-contracts/manifold-creator/contracts/extensions/extensions-deployment-guide)
 
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
+## Contribute
 
 ### Build
 
@@ -31,36 +28,4 @@ $ forge test
 
 ```shell
 $ forge fmt
-```
-
-### Gas Snapshots
-
-```shell
-$ forge snapshot
-```
-
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
 ```
