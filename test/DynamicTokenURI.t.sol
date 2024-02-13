@@ -24,6 +24,8 @@ contract DynamicTokenURITest is Test {
 
     // data
     string baseURI = "ipfs://ipfs/examplevhbgbfjdg/";
+    uint256 maxSupply = 24;
+    uint256 mintCost = 0.1 ether;
 
     function setUp() public {
         // Deploy the creator contract
@@ -32,11 +34,14 @@ contract DynamicTokenURITest is Test {
 
         // Deploy the extension contract
         vm.prank(creator);
-        extension = new DynamicTokenURI(address(token), baseURI, 24);
+        extension = new DynamicTokenURI(address(token), baseURI, maxSupply, mintCost);
 
         // Register the extension in the creator contract
         vm.prank(creator);
         token.registerExtension(address(extension), "");
+
+        vm.deal(alice, 10 ether);
+        vm.deal(bob, 10 ether);
     }
 
     function testSupportsInterface() public view {
@@ -53,12 +58,18 @@ contract DynamicTokenURITest is Test {
     }
 
     function testSimpleMintAndTransfer() public {
+        uint256 balanceBefore = address(creator).balance;
+
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint();
+        uint256 tokenId = extension.mint{value: mintCost}();
         string memory aliceURI = token.tokenURI(tokenId);
         string memory expectedAliceURI = string(abi.encodePacked(baseURI, "1.json"));
         assertEq(aliceURI, expectedAliceURI);
+
+        // Check owner balance
+        uint256 balanceAfter = address(creator).balance;
+        assertEq(balanceAfter - balanceBefore, mintCost);
 
         // 2. Alice transfers the token to Bob. The URI should change
         vm.prank(alice);
@@ -71,10 +82,9 @@ contract DynamicTokenURITest is Test {
     function testTransferUpToMaxChange() public {
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint();
+        uint256 tokenId = extension.mint{value: mintCost}();
 
         // 2. Token URI changes up to maxSupply
-        uint256 maxSupply = extension.maxSupply();
         address owner = alice;
         address recipient = bob;
         string memory lastURI;
@@ -139,17 +149,22 @@ contract DynamicTokenURITest is Test {
     }
 
     function testCannotMintMoreThanMaxSupply() public {
+        uint256 balanceBefore = address(creator).balance;
+
         // Mint up to maxSupply
-        uint256 maxSupply = extension.maxSupply();
         for (uint256 i = 0; i < maxSupply; i++) {
             vm.prank(alice);
-            extension.mint();
+            extension.mint{value: mintCost}();
         }
         assertEq(token.balanceOf(alice), maxSupply);
+
+        // Check owner balance
+        uint256 balanceAfter = address(creator).balance;
+        assertEq(balanceAfter - balanceBefore, mintCost * maxSupply);
 
         // Cannot mint more
         vm.prank(alice);
         vm.expectRevert("mint complete");
-        extension.mint();
+        extension.mint{value: mintCost}();
     }
 }

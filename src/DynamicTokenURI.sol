@@ -17,17 +17,25 @@ contract DynamicTokenURI is
     ICreatorExtensionTokenURI,
     IERC721CreatorExtensionApproveTransfer
 {
-    // Immutable storage
+    // Cost to mint a token
+    uint256 public immutable mintCost;
     // Total supply of tokens meant to be minted with this extension
     uint256 public immutable maxSupply;
-    uint256 public minted;
+    // Manifold creator contract
     IERC721CreatorCore public immutable creatorContract;
 
-    // Mutable storage
+    // Amount of tokens currently minted with this extension
+    uint256 public minted;
+    // Base URI for token URIs
     string public baseURI;
     mapping(uint256 => uint256) private tokenIdToMetadataId;
 
-    constructor(address creatorContract_, string memory baseURI_, uint256 maxSupply_) Ownable() {
+    constructor(
+        address creatorContract_,
+        string memory baseURI_,
+        uint256 maxSupply_,
+        uint256 mintCost_
+    ) Ownable() {
         require(
             ERC165Checker.supportsInterface(creatorContract_, type(IERC721CreatorCore).interfaceId),
             "creator must implement IERC721CreatorCore"
@@ -38,6 +46,7 @@ contract DynamicTokenURI is
         creatorContract = IERC721CreatorCore(creatorContract_);
         baseURI = baseURI_;
         maxSupply = maxSupply_;
+        mintCost = mintCost_;
     }
 
     function setBaseURI(string memory baseURI_) external onlyOwner {
@@ -114,9 +123,18 @@ contract DynamicTokenURI is
         return true;
     }
 
-    function mint() external returns (uint256) {
+    function mint() external payable returns (uint256) {
+        require(msg.value == mintCost, "insufficient funds");
         uint256 tokensMinted = minted;
         require(tokensMinted < maxSupply, "mint complete");
+
+        // Transfer mint cost to owner
+        if (msg.value != 0) {
+            (bool success,) = owner().call{value: msg.value}("");
+            require(success, "transfer failed");
+        }
+
+        // Mint a token to the caller
         unchecked {
             // realistically never overflows
             ++tokensMinted;
