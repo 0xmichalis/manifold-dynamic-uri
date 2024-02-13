@@ -94,4 +94,12 @@ contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionAp
 
         return true;
     }
+
+    function mint(address creator) external returns (uint256) {
+        require(
+            ERC165Checker.supportsInterface(creator, type(IERC721CreatorCore).interfaceId),
+            "creator must implement IERC721CreatorCore"
+        );
+        return IERC721CreatorCore(creator).mintExtension(msg.sender);
+    }
 }
