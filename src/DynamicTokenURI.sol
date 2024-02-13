@@ -7,16 +7,11 @@ import {ICreatorExtensionTokenURI} from
     "manifoldxyz/creator-core/extensions/ICreatorExtensionTokenURI.sol";
 import {IERC721CreatorExtensionApproveTransfer} from
     "manifoldxyz/creator-core/extensions/ERC721/IERC721CreatorExtensionApproveTransfer.sol";
-import {Ownable} from "openzeppelin/access/Ownable.sol";
 import {IERC721} from "openzeppelin/token/ERC721/IERC721.sol";
 import {IERC165} from "openzeppelin/utils/introspection/ERC165.sol";
 import {ERC165Checker} from "openzeppelin/utils/introspection/ERC165Checker.sol";
 
-contract DynamicTokenURI is
-    Ownable,
-    ICreatorExtensionTokenURI,
-    IERC721CreatorExtensionApproveTransfer
-{
+contract DynamicTokenURI is ICreatorExtensionTokenURI, IERC721CreatorExtensionApproveTransfer {
     // Immutable storage
     uint256 public immutable maxChanges;
 
@@ -24,7 +19,7 @@ contract DynamicTokenURI is
     string public baseURI;
     mapping(uint256 => uint256) private tokenIdToMetadataId;
 
-    constructor(string memory baseURI_, uint256 maxChanges_) Ownable(msg.sender) {
+    constructor(string memory baseURI_, uint256 maxChanges_) {
         require(bytes(baseURI_).length != 0, "baseURI must not be empty");
         require(maxChanges_ != 0, "maxChanges must be positive");
         baseURI = baseURI_;
@@ -32,8 +27,7 @@ contract DynamicTokenURI is
     }
 
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
-        return interfaceId == type(Ownable).interfaceId
-            || interfaceId == type(ICreatorExtensionTokenURI).interfaceId
+        return interfaceId == type(ICreatorExtensionTokenURI).interfaceId
             || interfaceId == type(IERC721CreatorExtensionApproveTransfer).interfaceId;
     }
 
