@@ -81,6 +81,18 @@ contract DynamicTokenURITest is Test {
         assertEq(bobURI, expectedBobURI);
     }
 
+    function testBatchMint() public {
+        // 1. Alice mints all tokens
+        vm.prank(alice);
+        extension.mintBatch{value: mintCost * maxSupply}(address(token), uint16(maxSupply));
+        assertEq(token.balanceOf(alice), maxSupply);
+
+        // 2. Cannot mint anymore
+        vm.prank(alice);
+        vm.expectRevert("max supply exceeded");
+        extension.mintBatch{value: mintCost}(address(token), 1);
+    }
+
     function testSetTokenURIs() public {
         // Alice mints a token
         vm.prank(alice);

@@ -199,4 +199,33 @@ contract DynamicTokenURI is
         creatorsToMinted[creatorContract] = tokensMinted;
         return IERC721CreatorCore(creatorContract).mintExtension(msg.sender);
     }
+
+    function mintBatch(address creatorContract, uint16 count)
+        external
+        payable
+        returns (uint256[] memory)
+    {
+        uint256 maxSupply = extensionConfigs[creatorContract].maxSupply;
+        require(maxSupply != 0, "extension not configured");
+
+        uint256 mintCost = extensionConfigs[creatorContract].mintCost;
+        require(msg.value == mintCost * count, "insufficient or too many funds");
+
+        uint256 tokensMinted = creatorsToMinted[creatorContract];
+        require(tokensMinted + count <= maxSupply, "max supply exceeded");
+
+        // Transfer mint cost to owner
+        if (msg.value != 0) {
+            (bool success,) = owner().call{value: msg.value}("");
+            require(success, "transfer failed");
+        }
+
+        // Mint count tokens to the caller
+        unchecked {
+            // realistically never overflows
+            tokensMinted += count;
+        }
+        creatorsToMinted[creatorContract] = tokensMinted;
+        return IERC721CreatorCore(creatorContract).mintExtensionBatch(msg.sender, count);
+    }
 }
