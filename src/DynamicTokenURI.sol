@@ -51,15 +51,6 @@ contract DynamicTokenURI is
         uint256 maxSupply,
         uint256 mintCost
     ) external onlyOwner {
-        _setExtensionConfig(creatorContract, baseURI, maxSupply, mintCost);
-    }
-
-    function _setExtensionConfig(
-        address creatorContract,
-        string memory baseURI,
-        uint256 maxSupply,
-        uint256 mintCost
-    ) internal {
         require(
             ERC165Checker.supportsInterface(creatorContract, type(IERC721CreatorCore).interfaceId),
             "creator must implement IERC721CreatorCore"
@@ -88,7 +79,7 @@ contract DynamicTokenURI is
             "creator must implement IERC721CreatorCore"
         );
         uint256 metadataLen = metadataIds.length;
-        require(metadataIds.length == tokenURIs.length, "length mismatch");
+        require(metadataLen == tokenURIs.length, "length mismatch");
         for (uint256 i; i < metadataLen; ++i) {
             metadataStrings[creatorContract][metadataIds[i]] = tokenURIs[i];
         }
