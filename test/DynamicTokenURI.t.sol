@@ -62,7 +62,7 @@ contract DynamicTokenURITest is Test {
 
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint{value: mintCost}();
+        uint256 tokenId = extension.mint{value: mintCost}(address(token));
         string memory aliceURI = token.tokenURI(tokenId);
         string memory expectedAliceURI = string(abi.encodePacked(baseURI, "1.json"));
         assertEq(aliceURI, expectedAliceURI);
@@ -82,7 +82,7 @@ contract DynamicTokenURITest is Test {
     function testTransferUpToMaxChange() public {
         // 1. Alice mints a token
         vm.prank(alice);
-        uint256 tokenId = extension.mint{value: mintCost}();
+        uint256 tokenId = extension.mint{value: mintCost}(address(token));
 
         // 2. Token URI changes up to maxSupply
         address owner = alice;
@@ -115,15 +115,16 @@ contract DynamicTokenURITest is Test {
         assertEq(finalURI, lastURI);
     }
 
-    function testInvalidCallerToTransferCallback() public {
+    function testOnlyConfiguredTokenCanCallTransferCallback() public {
         // Token contract can call the callback
         vm.prank(address(token));
-        extension.approveTransfer(address(0), alice, bob, 1);
+        extension.approveTransfer(address(token), alice, bob, 1);
 
         // Others cannot
-        vm.prank(alice);
-        vm.expectRevert("invalid caller");
-        extension.approveTransfer(address(0), alice, bob, 1);
+        ERC721Creator token2 = new ERC721Creator("BEEPLE", "BEEPLE");
+        vm.prank(address(token2));
+        vm.expectRevert("extension not configured");
+        extension.approveTransfer(address(token2), alice, bob, 1);
     }
 
     function testCannotCallSetApproveTransfer() public {
@@ -137,15 +138,15 @@ contract DynamicTokenURITest is Test {
         extension.setApproveTransfer(address(token), false);
     }
 
-    function testCannotCallSetBaseURI() public {
+    function testCannotCallSetExtensionConfig() public {
         // Creator can call the callback
         vm.prank(creator);
-        extension.setBaseURI("testURI");
+        extension.setExtensionConfig(address(token), "testURI", 24, 0.001 ether);
 
         // Others cannot
         vm.prank(alice);
         vm.expectRevert("Ownable: caller is not the owner");
-        extension.setBaseURI("testURI");
+        extension.setExtensionConfig(address(token), "testURI", 24, 0.001 ether);
     }
 
     function testCannotMintMoreThanMaxSupply() public {
@@ -154,7 +155,7 @@ contract DynamicTokenURITest is Test {
         // Mint up to maxSupply
         for (uint256 i = 0; i < maxSupply; i++) {
             vm.prank(alice);
-            extension.mint{value: mintCost}();
+            extension.mint{value: mintCost}(address(token));
         }
         assertEq(token.balanceOf(alice), maxSupply);
 
@@ -165,6 +166,6 @@ contract DynamicTokenURITest is Test {
         // Cannot mint more
         vm.prank(alice);
         vm.expectRevert("mint complete");
-        extension.mint{value: mintCost}();
+        extension.mint{value: mintCost}(address(token));
     }
 }

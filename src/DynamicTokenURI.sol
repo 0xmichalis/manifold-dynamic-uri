@@ -12,52 +12,74 @@ import {Ownable} from "openzeppelin/access/Ownable.sol";
 import {IERC165} from "openzeppelin/utils/introspection/IERC165.sol";
 import {Strings} from "openzeppelin/utils/Strings.sol";
 
+struct ExtensionConfig {
+    // Cost to mint a token
+    uint256 mintCost;
+    // Max supply of tokens to be minted by this extension
+    uint256 maxSupply;
+    // Base URI for token URIs minted by this extension
+    string baseURI;
+}
+
 contract DynamicTokenURI is
     Ownable,
     ICreatorExtensionTokenURI,
     IERC721CreatorExtensionApproveTransfer
 {
-    // Cost to mint a token
-    uint256 public immutable mintCost;
-    // Total supply of tokens meant to be minted with this extension
-    uint256 public immutable maxSupply;
-    // Manifold creator contract
-    IERC721CreatorCore public immutable creatorContract;
-
-    // Amount of tokens currently minted with this extension
-    uint256 public minted;
-    // Base URI for token URIs
-    string public baseURI;
-    mapping(uint256 => uint256) private tokenIdToMetadataId;
+    // Mapping from creator contracts to extension configs
+    mapping(address => ExtensionConfig) public extensionConfigs;
+    // Mapping from creator contracts to amount of tokens currently
+    // minted with this extension
+    mapping(address => uint256) public creatorsToMinted;
+    // Mapping from creator contracts to token ID to metadata ID
+    mapping(address => mapping(uint256 => uint256)) private _creatorsToTokenIdToMetadataId;
 
     constructor(
-        address creatorContract_,
-        string memory baseURI_,
-        uint256 maxSupply_,
-        uint256 mintCost_
+        address creatorContract,
+        string memory baseURI,
+        uint256 maxSupply,
+        uint256 mintCost
     ) Ownable() {
-        require(
-            ERC165Checker.supportsInterface(creatorContract_, type(IERC721CreatorCore).interfaceId),
-            "creator must implement IERC721CreatorCore"
-        );
-        require(bytes(baseURI_).length != 0, "baseURI must not be empty");
-        require(maxSupply_ != 0, "maxSupply must be positive");
-
-        creatorContract = IERC721CreatorCore(creatorContract_);
-        baseURI = baseURI_;
-        maxSupply = maxSupply_;
-        mintCost = mintCost_;
+        _setExtensionConfig(creatorContract, baseURI, maxSupply, mintCost);
     }
 
-    function setBaseURI(string memory baseURI_) external onlyOwner {
-        require(bytes(baseURI_).length != 0, "baseURI must not be empty");
-        baseURI = baseURI_;
+    function setExtensionConfig(
+        address creatorContract,
+        string memory baseURI,
+        uint256 maxSupply,
+        uint256 mintCost
+    ) external onlyOwner {
+        _setExtensionConfig(creatorContract, baseURI, maxSupply, mintCost);
+    }
+
+    function _setExtensionConfig(
+        address creatorContract,
+        string memory baseURI,
+        uint256 maxSupply,
+        uint256 mintCost
+    ) internal {
+        require(
+            ERC165Checker.supportsInterface(creatorContract, type(IERC721CreatorCore).interfaceId),
+            "creator must implement IERC721CreatorCore"
+        );
+        require(bytes(baseURI).length != 0, "baseURI must not be empty");
+        require(maxSupply != 0, "maxSupply must be positive");
+
+        ExtensionConfig memory config = ExtensionConfig({
+            baseURI: baseURI,
+            maxSupply: maxSupply,
+            mintCost: mintCost
+        });
+        extensionConfigs[creatorContract] = config;
     }
 
     /// @notice Disable the transfer callback if needed
-    function setApproveTransfer(address creatorContract_, bool enabled_) external onlyOwner {
-        require(creatorContract_ == address(creatorContract), "invalid creator");
-        IERC721CreatorCore(creatorContract_).setApproveTransferExtension(enabled_);
+    function setApproveTransfer(address creatorContract, bool enabled) external onlyOwner {
+        require(
+            ERC165Checker.supportsInterface(creatorContract, type(IERC721CreatorCore).interfaceId),
+            "creator must implement IERC721CreatorCore"
+        );
+        IERC721CreatorCore(creatorContract).setApproveTransferExtension(enabled);
     }
 
     function supportsInterface(bytes4 interfaceId) public pure returns (bool) {
@@ -66,13 +88,14 @@ contract DynamicTokenURI is
             || interfaceId == type(IERC721CreatorExtensionApproveTransfer).interfaceId;
     }
 
-    function tokenURI(address, /* creatorContract */ uint256 tokenId)
+    function tokenURI(address creatorContract, uint256 tokenId)
         external
         view
         override
         returns (string memory)
     {
-        uint256 metadataId = _getMetadataId(tokenId);
+        uint256 metadataId = _getMetadataId(creatorContract, tokenId);
+        string memory baseURI = extensionConfigs[creatorContract].baseURI;
         // This assumes the following directory structure in baseURI:
         // .
         // └──<baseURI>
@@ -83,11 +106,15 @@ contract DynamicTokenURI is
         return string(abi.encodePacked(baseURI, Strings.toString(metadataId), ".json"));
     }
 
-    function _getMetadataId(uint256 tokenId) internal view returns (uint256) {
-        uint256 metadataId = tokenIdToMetadataId[tokenId];
+    function _getMetadataId(address creatorContract,uint256 tokenId) internal view returns (uint256) {
+        uint256 maxSupply = extensionConfigs[creatorContract].maxSupply;
+        require(maxSupply != 0, "extension not configured");
+
+        uint256 metadataId = _creatorsToTokenIdToMetadataId[creatorContract][tokenId];
         if (metadataId == 0) {
             return 1;
         }
+
         // If within the change limit, use the metadata id.
         // Otherwise, use maxSupply, iow., the artwork will
         // frieze to the last artwork after the token shifts
@@ -102,13 +129,15 @@ contract DynamicTokenURI is
         external
         returns (bool)
     {
-        require(msg.sender == address(creatorContract), "invalid caller");
+        uint256 maxSupply = extensionConfigs[msg.sender].maxSupply;
+        require(maxSupply != 0, "extension not configured");
+
         if (from == address(0) || to == address(0)) {
             // This is a mint or a burn, do nothing
             return true;
         }
 
-        uint256 metadataId = _getMetadataId(tokenId);
+        uint256 metadataId = _getMetadataId(msg.sender, tokenId);
         // No more token URI changes once the max number of changes is reached
         if (metadataId >= maxSupply) {
             return true;
@@ -118,14 +147,19 @@ contract DynamicTokenURI is
             // realistically never overflows
             ++metadataId;
         }
-        tokenIdToMetadataId[tokenId] = metadataId;
+        _creatorsToTokenIdToMetadataId[msg.sender][tokenId] = metadataId;
 
         return true;
     }
 
-    function mint() external payable returns (uint256) {
-        require(msg.value == mintCost, "insufficient funds");
-        uint256 tokensMinted = minted;
+    function mint(address creatorContract) external payable returns (uint256) {
+        uint256 maxSupply = extensionConfigs[creatorContract].maxSupply;
+        require(maxSupply != 0, "extension not configured");
+
+        uint256 mintCost = extensionConfigs[creatorContract].mintCost;
+        require(msg.value == mintCost, "insufficient or too many funds");
+
+        uint256 tokensMinted = creatorsToMinted[creatorContract];
         require(tokensMinted < maxSupply, "mint complete");
 
         // Transfer mint cost to owner
@@ -139,7 +173,7 @@ contract DynamicTokenURI is
             // realistically never overflows
             ++tokensMinted;
         }
-        minted = tokensMinted;
+        creatorsToMinted[creatorContract] = tokensMinted;
         return IERC721CreatorCore(creatorContract).mintExtension(msg.sender);
     }
 }
