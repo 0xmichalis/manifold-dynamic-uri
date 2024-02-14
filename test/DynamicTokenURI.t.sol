@@ -34,7 +34,9 @@ contract DynamicTokenURITest is Test {
 
         // Deploy the extension contract
         vm.prank(creator);
-        extension = new DynamicTokenURI(address(token), baseURI, maxSupply, mintCost);
+        extension = new DynamicTokenURI();
+        vm.prank(creator);
+        extension.setExtensionConfig(address(token), baseURI, maxSupply, mintCost);
 
         // Register the extension in the creator contract
         vm.prank(creator);
@@ -77,6 +79,38 @@ contract DynamicTokenURITest is Test {
         string memory bobURI = token.tokenURI(tokenId);
         string memory expectedBobURI = string(abi.encodePacked(baseURI, "2.json"));
         assertEq(bobURI, expectedBobURI);
+    }
+
+    function testSetTokenURIs() public {
+        // Alice mints a token
+        vm.prank(alice);
+        uint256 tokenId = extension.mint{value: mintCost}(address(token));
+        string memory aliceURI = token.tokenURI(tokenId);
+        string memory expectedAliceURI = string(abi.encodePacked(baseURI, "1.json"));
+        assertEq(aliceURI, expectedAliceURI);
+
+        // Set token URIs
+        vm.prank(creator);
+        uint256[] memory metadataIds = new uint256[](1);
+        metadataIds[0] = 1;
+        string[] memory tokenURIs = new string[](1);
+        tokenURIs[0] = "ar://wowOverridenURI";
+        extension.setTokenURIs(address(token), metadataIds, tokenURIs);
+
+        // Alice's token uses the overriden URI
+        assertEq(token.tokenURI(tokenId), tokenURIs[0]);
+
+        // Overriden token URI can be cleaned up
+        vm.prank(creator);
+        tokenURIs[0] = "";
+        extension.setTokenURIs(address(token), metadataIds, tokenURIs);
+        string memory cleanedURI = token.tokenURI(tokenId);
+        assertEq(cleanedURI, expectedAliceURI);
+
+        // Cannot be called by others
+        vm.prank(bob);
+        vm.expectRevert("Ownable: caller is not the owner");
+        extension.setTokenURIs(address(token), new uint256[](0), new string[](0));
     }
 
     function testTransferUpToMaxChange() public {

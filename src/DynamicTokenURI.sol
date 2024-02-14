@@ -33,12 +33,12 @@ contract DynamicTokenURI is
     mapping(address => uint256) public creatorsToMinted;
     // Mapping from creator contracts to token ID to metadata ID
     mapping(address => mapping(uint256 => uint256)) private _creatorsToTokenIdToMetadataId;
+    // Mapping from creator contracts to metadata ID to metadata string
+    // Can be used to avoid the assumption that every metadata file is
+    // named after a number.
+    mapping(address => mapping(uint256 => string)) public metadataStrings;
 
-    constructor(address creatorContract, string memory baseURI, uint256 maxSupply, uint256 mintCost)
-        Ownable()
-    {
-        _setExtensionConfig(creatorContract, baseURI, maxSupply, mintCost);
-    }
+    constructor() Ownable() {}
 
     function setExtensionConfig(
         address creatorContract,
@@ -67,6 +67,28 @@ contract DynamicTokenURI is
         extensionConfigs[creatorContract] = config;
     }
 
+    /// @notice Set token URIs for a range of metadata IDs
+    /// This can be used to avoid the assumption that every metadata file is
+    /// named after a number.
+    /// @param creatorContract The creator contract
+    /// @param metadataIds The metadata IDs
+    /// @param tokenURIs The token URIs
+    function setTokenURIs(
+        address creatorContract,
+        uint256[] memory metadataIds,
+        string[] memory tokenURIs
+    ) external onlyOwner {
+        require(
+            ERC165Checker.supportsInterface(creatorContract, type(IERC721CreatorCore).interfaceId),
+            "creator must implement IERC721CreatorCore"
+        );
+        uint256 metadataLen = metadataIds.length;
+        require(metadataIds.length == tokenURIs.length, "length mismatch");
+        for (uint256 i; i < metadataLen; ++i) {
+            metadataStrings[creatorContract][metadataIds[i]] = tokenURIs[i];
+        }
+    }
+
     /// @notice Disable the transfer callback if needed
     function setApproveTransfer(address creatorContract, bool enabled) external onlyOwner {
         require(
@@ -89,6 +111,13 @@ contract DynamicTokenURI is
         returns (string memory)
     {
         uint256 metadataId = _getMetadataId(creatorContract, tokenId);
+
+        // The assumption below can be avoided by using the metadataStrings mapping
+        string memory uri = metadataStrings[creatorContract][metadataId];
+        if (bytes(uri).length != 0) {
+            return uri;
+        }
+
         string memory baseURI = extensionConfigs[creatorContract].baseURI;
         // This assumes the following directory structure in baseURI:
         // .
