@@ -93,6 +93,24 @@ contract DynamicTokenURITest is Test {
         extension.mintBatch{value: mintCost}(address(token), 1);
     }
 
+    function testCannotMintDueToIncorrectFunds() public {
+        vm.prank(alice);
+        vm.expectRevert("insufficient or too many funds");
+        extension.mint{value: mintCost - 1}(address(token));
+
+        vm.prank(alice);
+        vm.expectRevert("insufficient or too many funds");
+        extension.mint{value: mintCost + 1}(address(token));
+
+        vm.prank(alice);
+        vm.expectRevert("insufficient or too many funds");
+        extension.mintBatch{value: mintCost - 1}(address(token), 1);
+
+        vm.prank(alice);
+        vm.expectRevert("insufficient or too many funds");
+        extension.mintBatch{value: mintCost + 1}(address(token), 1);
+    }
+
     function testSetTokenURIs() public {
         // Alice mints a token
         vm.prank(alice);
