@@ -34,12 +34,9 @@ contract DynamicTokenURI is
     // Mapping from creator contracts to token ID to metadata ID
     mapping(address => mapping(uint256 => uint256)) private _creatorsToTokenIdToMetadataId;
 
-    constructor(
-        address creatorContract,
-        string memory baseURI,
-        uint256 maxSupply,
-        uint256 mintCost
-    ) Ownable() {
+    constructor(address creatorContract, string memory baseURI, uint256 maxSupply, uint256 mintCost)
+        Ownable()
+    {
         _setExtensionConfig(creatorContract, baseURI, maxSupply, mintCost);
     }
 
@@ -65,11 +62,8 @@ contract DynamicTokenURI is
         require(bytes(baseURI).length != 0, "baseURI must not be empty");
         require(maxSupply != 0, "maxSupply must be positive");
 
-        ExtensionConfig memory config = ExtensionConfig({
-            baseURI: baseURI,
-            maxSupply: maxSupply,
-            mintCost: mintCost
-        });
+        ExtensionConfig memory config =
+            ExtensionConfig({baseURI: baseURI, maxSupply: maxSupply, mintCost: mintCost});
         extensionConfigs[creatorContract] = config;
     }
 
@@ -106,7 +100,11 @@ contract DynamicTokenURI is
         return string(abi.encodePacked(baseURI, Strings.toString(metadataId), ".json"));
     }
 
-    function _getMetadataId(address creatorContract,uint256 tokenId) internal view returns (uint256) {
+    function _getMetadataId(address creatorContract, uint256 tokenId)
+        internal
+        view
+        returns (uint256)
+    {
         uint256 maxSupply = extensionConfigs[creatorContract].maxSupply;
         require(maxSupply != 0, "extension not configured");
 

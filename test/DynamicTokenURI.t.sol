@@ -130,6 +130,14 @@ contract DynamicTokenURITest is Test {
         extension.approveTransfer(address(token), alice, bob, 1);
     }
 
+    function testTokenURIDoesNotWorkForUnconfiguredToken() public {
+        ERC721Creator token2 = new ERC721Creator("BEEPLE", "BEEPLE");
+
+        vm.prank(alice);
+        vm.expectRevert("extension not configured");
+        extension.tokenURI(address(token2), 1);
+    }
+
     function testCannotCallSetApproveTransfer() public {
         // Creator can enable or disable transfer approvals
         vm.prank(creator);
