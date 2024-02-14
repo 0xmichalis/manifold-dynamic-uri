@@ -102,7 +102,7 @@ contract DynamicTokenURI is
         //    ├── 1.json
         //    ├── 2.json
         //    ├── ...
-        //    └── <maxChanges>.json
+        //    └── <maxSupply>.json
         return string(abi.encodePacked(baseURI, Strings.toString(metadataId), ".json"));
     }
 
