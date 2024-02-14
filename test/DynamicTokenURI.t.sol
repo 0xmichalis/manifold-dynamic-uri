@@ -125,6 +125,9 @@ contract DynamicTokenURITest is Test {
         vm.prank(address(token2));
         vm.expectRevert("extension not configured");
         extension.approveTransfer(address(token2), alice, bob, 1);
+        vm.prank(address(token2));
+        vm.expectRevert("extension not configured");
+        extension.approveTransfer(address(token), alice, bob, 1);
     }
 
     function testCannotCallSetApproveTransfer() public {
