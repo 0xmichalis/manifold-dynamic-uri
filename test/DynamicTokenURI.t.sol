@@ -131,7 +131,7 @@ contract DynamicTokenURITest is Test {
     }
 
     function testCannotCallSetApproveTransfer() public {
-        // Creator can call the callback
+        // Creator can enable or disable transfer approvals
         vm.prank(creator);
         extension.setApproveTransfer(address(token), false);
 
@@ -142,7 +142,7 @@ contract DynamicTokenURITest is Test {
     }
 
     function testCannotCallSetExtensionConfig() public {
-        // Creator can call the callback
+        // Creator can set extension config
         vm.prank(creator);
         extension.setExtensionConfig(address(token), "testURI", 24, 0.001 ether);
 
