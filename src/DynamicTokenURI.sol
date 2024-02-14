@@ -31,7 +31,12 @@ contract DynamicTokenURI is
     // Mapping from creator contracts to amount of tokens currently
     // minted with this extension
     mapping(address => uint256) public creatorsToMinted;
-    // Mapping from creator contracts to token ID to metadata ID
+    // Mapping from creator contracts to token ID to metadata ID.
+    // The metadata ID keeps track of the metadata file to use for
+    // a given token ID. Tokens that have never been transferred
+    // start with a metadata ID of 1, then every time a token is
+    // transferred, the metadata ID is incremented by 1, all the
+    // way up to maxSupply.
     mapping(address => mapping(uint256 => uint256)) private _creatorsToTokenIdToMetadataId;
     // Mapping from creator contracts to metadata ID to metadata string
     // Can be used to avoid the assumption that every metadata file is
